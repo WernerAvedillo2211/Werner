@@ -29,14 +29,13 @@ pw=unique_weeks[1] if len(unique_weeks)>=2 else None
 
 def format_name(name):
     parts=name.strip().split()
-    if len(parts)>=2:return f"{parts[0][0]}. {' '.join(parts[1:])}"
-    return name
+    if len(parts)==1:return parts[0]
+    return f"{parts[0][0].upper()}. {parts[-1]}"
 
 def get_red_shade(pct):
-    if pct>=8:return '#8B0000'
-    elif pct>=6:return '#B22222'
+    if pct>=6:return '#B22222'
     elif pct>=4:return '#DC143C'
-    elif pct>=2:return '#FF6347'
+    elif pct>=2:return '#FFA07A'
     else:return '#FFA07A'
 
 results=[]
@@ -53,9 +52,9 @@ for director in all_dirs:
     total_lines=len(df_all[(df_all["Week"]==cw)&(df_all["Buying Director"]==director)])
     
     if len(cw_error_ids)==0:
-        cat=1;cat_name="No Errors";color='#90EE90';marker='✓';pct=0
+        cat=1;cat_name="No Errors";color='#00C400';marker='✓';pct=0
     elif len(carryover_ids)==0:
-        cat=2;cat_name="New Errors";color='#FFD700';marker='⚠';pct=0
+        cat=2;cat_name="New Errors";color='#2BFF6A';marker='✓';pct=0
     else:
         pct=(len(carryover_ids)/total_lines*100) if total_lines>0 else 0
         cat=3;cat_name="Carry Over";color=get_red_shade(pct);marker='⚠'
@@ -69,7 +68,7 @@ timestamp = "11:59 PM - 21/10/2025"
 fig,ax=plt.subplots(figsize=(14,max(4,len(result_df)*0.3)))
 ax.axis('off')
 
-cols=4;x_start,y_start,x_gap,y_gap=0.05,0.92,0.24,0.06
+cols=4;x_start,y_start,x_gap,y_gap=0.05,0.92,0.24,0.07
 curr_row=0
 
 for cat_num in [1,2,3]:
@@ -77,32 +76,30 @@ for cat_num in [1,2,3]:
     if len(cat_data)==0:continue
     
     for idx,row in cat_data.iterrows():
-        col=idx%cols
-        if col==0 and idx>0:curr_row+=1
-        x=x_start+col*x_gap;y=y_start-curr_row*y_gap
+        col=curr_row%cols
+        x=x_start+col*x_gap;y=y_start-(curr_row//cols)*y_gap
         
         # Determine text color based on background darkness
-        is_dark = row['Color'] in ['#8B0000','#B22222','#DC143C','#FF6347']
+        is_dark = row['Color'].upper() in {'#B22222','#DC143C'}
         text_color = 'white' if is_dark else 'black'
         
-        rect=mpatches.FancyBboxPatch((x,y-0.04),0.15,0.045,boxstyle="round,pad=0.003",transform=ax.transAxes,facecolor=row['Color'],edgecolor='#888',linewidth=0.8)
+        rect=mpatches.FancyBboxPatch((x,y-0.04),0.18,0.055,boxstyle="round,pad=0.003",transform=ax.transAxes,facecolor=row['Color'],edgecolor='#888',linewidth=0.8)
         ax.add_patch(rect)
-        ax.text(x+0.015,y-0.0175,row['Marker'],transform=ax.transAxes,fontsize=11,va='center',weight='bold',color=text_color)
-        ax.text(x+0.045,y-0.0175,row['Name'],transform=ax.transAxes,fontsize=13,va='center',color=text_color)
-    
-    curr_row+=1
+        ax.text(x+0.015,y-0.0125,row['Marker'],transform=ax.transAxes,fontsize=12,va='center',weight='bold',color=text_color)
+        ax.text(x+0.045,y-0.0125,row['Name'],transform=ax.transAxes,fontsize=14,va='center',weight='bold',color=text_color)
+        curr_row+=1
 
 legend_elements=[
-    mpatches.Patch(facecolor='#90EE90',edgecolor='#888',label='✓ No Errors'),
-    mpatches.Patch(facecolor='#FFD700',edgecolor='#888',label='✓ Only New Errors'),
-    mpatches.Patch(facecolor='#FFA07A',edgecolor='#888',label='⚠ Carry Over >=2%'),
-    mpatches.Patch(facecolor='#FF6347',edgecolor='#888',label='⚠ Carry Over >=4%'),
-    mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Carry Over >=6%'),
-    mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ Carry Over >=8%')
+    mpatches.Patch(facecolor='#00C400',edgecolor='#888',label='✓ No Errors'),
+    mpatches.Patch(facecolor='#2BFF6A',edgecolor='#888',label='✓ Only New Errors'),
+    mpatches.Patch(facecolor='none',edgecolor='none',label=' '),
+    mpatches.Patch(facecolor='#FFA07A',edgecolor='#888',label='⚠ Low Error Count'),
+    mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Medium Error Count'),
+    mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ High Error Count'),
 ]
-ax.legend(handles=legend_elements,loc='lower center',ncol=4,fontsize=8,frameon=True,bbox_to_anchor=(0.5,0.4))
+ax.legend(handles=legend_elements,loc='lower center',ncol=2,fontsize=10,frameon=True,bbox_to_anchor=(0.5,0.4),columnspacing=1,markerscale=1.5)
 ax.text(0.5,0.97,'Website Dashboard Error Status',transform=ax.transAxes,fontsize=15,weight='bold',ha='center')
-ax.text(0.01,0.3,f'Table generated {timestamp}',transform=ax.transAxes,fontsize=8,style='italic',color='gray')
+ax.text(0.01,0.3,f'Table generated {timestamp}',transform=ax.transAxes,fontsize=10,style='italic',color='black')
 plt.tight_layout()
 plt.show()
 # ...existing code...
