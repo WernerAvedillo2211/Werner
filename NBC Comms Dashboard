@@ -1,0 +1,108 @@
+# ...existing code...
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import math
+import traceback
+import sys
+
+df=xl("AllWebDash[#All]",headers=True)
+if "Review Required" not in df.columns or "FileDate" not in df.columns or "Sellable ID" not in df.columns or "Buying Director" not in df.columns:
+    raise KeyError(f"Required columns missing. Available: {list(df.columns)}")
+df["FileDate"]=pd.to_datetime(df["FileDate"])
+df["Review Required"]=df["Review Required"].fillna("").astype(str)
+df["Buying Director"]=df["Buying Director"].fillna("").astype(str)
+df["Week"]=df["FileDate"].dt.to_period("W")
+max_date=df["FileDate"].max()
+all_dirs=df[(df["FileDate"]==max_date)&(df["Buying Director"].str.strip()!="")]["Buying Director"].unique()
+
+# Keep unfiltered dataframe for line counts
+df_all = df.copy()
+
+df=df[df["Review Required"].str.strip()!=""]
+df["Error_ID"]=df["Review Required"]+"_"+df["Sellable ID"].astype(str)
+unique_weeks=sorted(df["Week"].unique(),reverse=True)
+cw=unique_weeks[0] if len(unique_weeks)>=1 else None
+pw=unique_weeks[1] if len(unique_weeks)>=2 else None
+
+def format_name(name):
+    parts=name.strip().split()
+    if len(parts)>=2:return f"{parts[0][0]}. {' '.join(parts[1:])}"
+    return name
+
+def get_red_shade(pct):
+    if pct>=8:return '#8B0000'
+    elif pct>=6:return '#B22222'
+    elif pct>=4:return '#DC143C'
+    elif pct>=2:return '#FF6347'
+    else:return '#FFA07A'
+
+results=[]
+for director in all_dirs:
+    fname=format_name(director)
+    cw_errors=df[(df["Week"]==cw)&(df["Buying Director"]==director)]
+    pw_errors=df[(df["Week"]==pw)&(df["Buying Director"]==director)]
+    cw_error_ids=set(cw_errors["Error_ID"].unique()) if not cw_errors.empty else set()
+    pw_error_ids=set(pw_errors["Error_ID"].unique()) if not pw_errors.empty else set()
+    carryover_ids=cw_error_ids&pw_error_ids
+    new_ids=cw_error_ids-pw_error_ids
+    
+    # Calculate total line count for this director in current week from unfiltered data
+    total_lines=len(df_all[(df_all["Week"]==cw)&(df_all["Buying Director"]==director)])
+    
+    if len(cw_error_ids)==0:
+        cat=1;cat_name="No Errors";color='#90EE90';marker='✓';pct=0
+    elif len(carryover_ids)==0:
+        cat=2;cat_name="New Errors";color='#FFD700';marker='⚠';pct=0
+    else:
+        pct=(len(carryover_ids)/total_lines*100) if total_lines>0 else 0
+        cat=3;cat_name="Carry Over";color=get_red_shade(pct);marker='⚠'
+    
+    results.append({"Name":fname,"Category":cat,"Cat_Name":cat_name,"Color":color,"Marker":marker,"Pct":pct})
+xl("G7")
+result_df=pd.DataFrame(results).sort_values(["Category","Pct"],ascending=[True,True])
+
+timestamp = "11:59 PM - 21/10/2025"
+
+fig,ax=plt.subplots(figsize=(14,max(4,len(result_df)*0.3)))
+ax.axis('off')
+
+cols=4;x_start,y_start,x_gap,y_gap=0.05,0.92,0.24,0.06
+curr_row=0
+
+for cat_num in [1,2,3]:
+    cat_data=result_df[result_df["Category"]==cat_num].reset_index(drop=True)
+    if len(cat_data)==0:continue
+    
+    for idx,row in cat_data.iterrows():
+        col=idx%cols
+        if col==0 and idx>0:curr_row+=1
+        x=x_start+col*x_gap;y=y_start-curr_row*y_gap
+        
+        # Determine text color based on background darkness
+        is_dark = row['Color'] in ['#8B0000','#B22222','#DC143C','#FF6347']
+        text_color = 'white' if is_dark else 'black'
+        
+        rect=mpatches.FancyBboxPatch((x,y-0.04),0.15,0.045,boxstyle="round,pad=0.003",transform=ax.transAxes,facecolor=row['Color'],edgecolor='#888',linewidth=0.8)
+        ax.add_patch(rect)
+        ax.text(x+0.015,y-0.0175,row['Marker'],transform=ax.transAxes,fontsize=11,va='center',weight='bold',color=text_color)
+        ax.text(x+0.045,y-0.0175,row['Name'],transform=ax.transAxes,fontsize=13,va='center',color=text_color)
+    
+    curr_row+=1
+
+legend_elements=[
+    mpatches.Patch(facecolor='#90EE90',edgecolor='#888',label='✓ No Errors'),
+    mpatches.Patch(facecolor='#FFD700',edgecolor='#888',label='✓ Only New Errors'),
+    mpatches.Patch(facecolor='#FFA07A',edgecolor='#888',label='⚠ Carry Over >=2%'),
+    mpatches.Patch(facecolor='#FF6347',edgecolor='#888',label='⚠ Carry Over >=4%'),
+    mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Carry Over >=6%'),
+    mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ Carry Over >=8%')
+]
+ax.legend(handles=legend_elements,loc='lower center',ncol=4,fontsize=8,frameon=True,bbox_to_anchor=(0.5,0.4))
+ax.text(0.5,0.97,'Website Dashboard Error Status',transform=ax.transAxes,fontsize=15,weight='bold',ha='center')
+ax.text(0.01,0.3,f'Table generated {timestamp}',transform=ax.transAxes,fontsize=8,style='italic',color='gray')
+plt.tight_layout()
+plt.show()
+# ...existing code...
