@@ -1,0 +1,197 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import math
+import traceback
+import sys
+
+def build_dashboard(force_20_slots=True, cols=4):
+    # load table (host environment must provide xl)
+    df = xl("Web_Sample_Tracker_ALL_BD[#All]", headers=True)
+    required = {"Buying Director", "Red Flag Reason"}
+    if not required.issubset(set(df.columns)):
+        raise KeyError(f"Required columns missing. Available: {list(df.columns)}")
+    df["Buying Director"] = df["Buying Director"].fillna("").astype(str).str.strip()
+    df["Red Flag Reason"] = df["Red Flag Reason"].fillna("").astype(str).str.strip()
+    df = df[["Buying Director", "Red Flag Reason"]].copy()
+    non_empty = df[df["Red Flag Reason"] != ""]
+    counts = non_empty["Buying Director"].value_counts().to_dict()
+
+    # preserve first-seen order
+    all_dirs = list(dict.fromkeys(df["Buying Director"].tolist()))
+    # initial list (will be re-ordered by color later)
+    all_dirs_sorted = all_dirs.copy()
+
+    # choose which names to display (keep this behavior)
+    if force_20_slots:
+        unique_names = [d for d in all_dirs_sorted if d != ""][:20]
+        while len(unique_names) < 20:
+            unique_names.append("")
+    else:
+        unique_names = [d for d in all_dirs_sorted if d != ""]
+
+    # layout parameters in axes coordinates (0..1)
+    x_start, x_end = 0.05, 0.95
+    y_start, y_bottom = 0.92, 0.05
+    # helper color functions
+    def _rgb_to_hex(rgb):
+        r, g, b = rgb
+        ri = int(max(0, min(1, r)) * 255)
+        gi = int(max(0, min(1, g)) * 255)
+        bi = int(max(0, min(1, b)) * 255)
+        return f"#{ri:02X}{gi:02X}{bi:02X}"
+    def _red_for_count(count, max_count):
+        # Most errors -> '#B22222', medium -> '#DC143C', light -> '#FFA07A'
+        if count <= 0 or max_count <= 0:
+            return "#90EE90"
+        intensity = float(count) / float(max_count)
+        # discrete bands: light -> medium -> most
+        if intensity <= 0.33:
+            return "#FFA07A"  # light
+        elif intensity <= 0.66:
+            return "#DC143C"  # medium
+        else:
+            return "#B22222"  # most errors
+
+    # name abbreviation helper (Andrew King -> A. King)
+    def _abbrev_name(full_name):
+        if not full_name or not full_name.strip():
+            return full_name
+        parts = full_name.strip().split()
+        if len(parts) == 1:
+            return parts[0]
+        first = parts[0]
+        last = parts[-1]
+        initial = first[0].upper() + "."
+        return f"{initial} {last}"
+
+    _always_yellow_display = {"A. King", "D. Heng", "P. Handley", "L. Iemma"}
+    _always_yellow_lastnames = {"King", "Heng", "Handley", "Iemma"}
+
+    max_count = max(counts.values()) if counts else 0
+
+    # --- reorder unique_names so they appear: Green -> Yellow -> Light Red -> Medium -> Dark Red ---
+    color_order = {
+        "#90EE90": 0,  # green
+        "#FFD700": 1,  # yellow
+        "#FFA07A": 2,  # light red
+        "#DC143C": 3,  # medium red
+        "#B22222": 4,  # dark red
+    }
+    def _effective_color_for_name(n):
+        if not n or not n.strip():
+            return "#90EE90"
+        display = _abbrev_name(n)
+        last = n.strip().split()[-1]
+        if display in _always_yellow_display or last in _always_yellow_lastnames:
+            return "#FFD700"
+        return _red_for_count(counts.get(n, 0), max_count)
+
+    unique_names = sorted(
+        unique_names,
+        key=lambda n: (color_order.get(_effective_color_for_name(n).upper(), 99), counts.get(n, 0))
+    )
+
+    # --- Use Website Dashboard sizing/spacing so visuals match ---
+    fig, ax = plt.subplots(figsize=(14, max(4, len(unique_names) * 0.3)))
+    ax.axis('off')
+
+    # Fixed box sizes / gaps (axes coordinates) copied from Website Dashboard
+    fixed_box_w = 0.15   # match Website Dashboard
+    fixed_box_h = 0.045  # match Website Dashboard
+    x_gap = 0.24         # horizontal step between boxes (axes coords)
+    y_gap = 0.06         # vertical step between rows (axes coords)
+
+    # Fixed font sizes to match Website Dashboard visuals
+    marker_fs = 11
+    name_fs = 13
+    marker_x_offset = 0.015
+    name_x_offset = 0.045
+    rect_y_offset = 0.04  # changed from fixed_box_h to match Dashboard
+
+    # draw boxes & text
+    for idx, name in enumerate(unique_names):
+        if not name or name.strip() == "":
+            continue
+        r = idx // cols
+        c = idx % cols
+        count = counts.get(name, 0)
+        display_name = _abbrev_name(name)
+        last_name = name.strip().split()[-1] if name and name.strip() else ""
+        # apply yellow override for specific names regardless of count
+        if display_name in _always_yellow_display or last_name in _always_yellow_lastnames:
+            color = "#FFD700"
+        else:
+            color = _red_for_count(count, max_count)
+        marker = "✓" if count == 0 else "⚠"
+        x = x_start + c * x_gap
+        y = y_start - r * y_gap
+        # determine text color based on background darkness (match Website Dashboard)
+        is_dark = color.upper() in {"#8B0000", "#B22222", "#DC143C", "#FF6347"}
+        text_color = "white" if is_dark else "black"
+        rect = mpatches.FancyBboxPatch(
+            (x, y - rect_y_offset),
+            fixed_box_w,
+            fixed_box_h,
+            boxstyle="round,pad=0.003",
+            transform=ax.transAxes,
+            facecolor=color,
+            edgecolor="#888",
+            linewidth=0.8,
+        )
+        ax.add_patch(rect)
+        # place marker + abbreviated name inside box using fixed offsets/sizes
+        ax.text(x + marker_x_offset, y - rect_y_offset / 2, marker,
+                transform=ax.transAxes, fontsize=marker_fs, va="center",
+                weight="bold", color=text_color)
+        ax.text(x + name_x_offset, y - rect_y_offset / 2, display_name,
+                transform=ax.transAxes, fontsize=name_fs, va="center", color=text_color)
+
+    # legend + title + timestamp (formatting matched to Website Dashboard)
+    legend_elements = [
+        mpatches.Patch(facecolor="#90EE90", edgecolor="#888", label="✓  No Errors"),
+        mpatches.Patch(facecolor='#FFD700', edgecolor='#888', label='✓ New Lines Added'),
+        mpatches.Patch(facecolor='#FFA07A', edgecolor='#888', label='⚠ Low'),
+        mpatches.Patch(facecolor='#DC143C', edgecolor='#888', label='⚠ Medium'),
+        mpatches.Patch(facecolor='#B22222', edgecolor='#888', label='⚠ High')
+    ]
+    ax.legend(handles=legend_elements, loc="lower center", ncol=4, fontsize=8, frameon=True, bbox_to_anchor=(0.5, 0.4))
+    timestamp = "11:59 AM - 21/10/2025"
+    ax.text(0.5, 0.97, "Website Sample Trackers Error Status", transform=ax.transAxes, fontsize=15, weight="bold", ha="center")
+    ax.text(0.02, 0.3, f"Table generated {timestamp}", transform=ax.transAxes, fontsize=8, style="italic", color="gray")
+    plt.tight_layout()
+    plt.show()
+
+def _report_error_to_excel(cell="G7", tb=None):
+    short = ""
+    if tb:
+        lines = tb.splitlines()
+        short = lines[-1] if lines else tb
+    try:
+        xl(cell, str(short))
+    except Exception:
+        print(tb, file=sys.stderr)
+        try:
+            with open(r"c:\Users\avedillo\Documents\Python Scripts\bd_redflag_traceback.txt", "w", encoding="utf-8") as fh:
+                fh.write(tb)
+        except Exception:
+            pass
+
+def main():
+    # Call with force_20_slots=False to ensure all directors are included (dynamic rows)
+    build_dashboard(force_20_slots=False, cols=4)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        tb = traceback.format_exc()
+        _report_error_to_excel("G7", tb)
+        try:
+            with open(r"c:\Users\avedillo\Documents\Python Scripts\bd_redflag_traceback.txt", "w", encoding="utf-8") as fh:
+                fh.write(tb)
+        except Exception:
+            pass
+        raise
