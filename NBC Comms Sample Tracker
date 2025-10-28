@@ -44,8 +44,7 @@ def build_dashboard(force_20=True,cols=4):
   if c>0:return red_clr(c,mc)
   return "#2BFF6A" if rec.get(n,False) else "#00C400"
  names=sorted(names,key=lambda n:(co.get(clr(n).upper(),99),counts.get(n,0)))
- while len(names)<24:names.append("")
- fig,ax=plt.subplots(figsize=(14,max(4,len(names)*0.3)))
+ fig,ax=plt.subplots(figsize=(14,8.5))
  ax.axis('off')
  bw,bh,xg,yg=0.18,0.055,0.24,0.07
  for i,n in enumerate(names):
@@ -56,13 +55,13 @@ def build_dashboard(force_20=True,cols=4):
   x,y=0.05+c*xg,0.92-r*yg
   tc="white" if col.upper() in {"#8B0000","#B22222","#DC143C","#FF6347","#C90000","#FF0033"} else "black"
   ax.add_patch(mpatches.FancyBboxPatch((x,y-0.04),bw,bh,boxstyle="round,pad=0.003",transform=ax.transAxes,facecolor=col,edgecolor="#888",linewidth=0.8))
-  ax.text(x+0.015,y-0.0125,mk,transform=ax.transAxes,fontsize=12,va="center",weight="bold",color=tc)
-  ax.text(x+0.045,y-0.0125,dn,transform=ax.transAxes,fontsize=14,va="center",weight="bold",color=tc)
- leg=[mpatches.Patch(facecolor='#00C400',edgecolor='#888',label='✓ No Errors'),mpatches.Patch(facecolor='#FFA07A',edgecolor='#888',label='⚠ Low Error Count'),mpatches.Patch(facecolor='#2BFF6A',edgecolor='#888',label='✓ Only New Errors'),mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Medium Error Count'),mpatches.Patch(facecolor='none',edgecolor='none',label=' '),mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ High Error Count')]
- ax.legend(handles=leg,loc="lower center",ncol=2,fontsize=10,frameon=True,bbox_to_anchor=(0.5,0.4),columnspacing=1,markerscale=1.5)
- ax.text(0.5,0.97,"Website Sample Trackers Error Status",transform=ax.transAxes,fontsize=15,weight="bold",ha="center")
+  ax.text(x+0.015,y-0.0125,mk,transform=ax.transAxes,fontsize=13,va="center",weight="bold",color=tc)
+  ax.text(x+0.045,y-0.0125,dn,transform=ax.transAxes,fontsize=15,va="center",weight="bold",color=tc)
+ leg=[mpatches.Patch(facecolor='#00C400',edgecolor='#888',label='✓ No Errors'),mpatches.Patch(facecolor='#2BFF6A',edgecolor='#888',label='✓ Only New Lines'),mpatches.Patch(facecolor='none',edgecolor='none',label=' '),mpatches.Patch(facecolor='#FFA07A',edgecolor='#888',label='⚠ Low Error Count'),mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Medium Error Count'),mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ High Error Count')]
+ ax.legend(handles=leg,loc="lower center",ncol=2,fontsize=10,frameon=True,bbox_to_anchor=(0.5,0.41),columnspacing=1,markerscale=1.5)
+ ax.text(0.5,0.97,"Website Sample Trackers Error Status",transform=ax.transAxes,fontsize=17,weight="bold",ha="center")
  ax.text(0.02,0.3,f"Table generated 11:59 AM - 28/10/2025",transform=ax.transAxes,fontsize=10,style="italic",color="black")
- plt.tight_layout()
+ plt.subplots_adjust(bottom=0.05)
  plt.show()
 def main():
  build_dashboard(force_20=False,cols=4)

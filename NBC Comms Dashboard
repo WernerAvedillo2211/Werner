@@ -63,9 +63,9 @@ for director in all_dirs:
 xl("G7")
 result_df=pd.DataFrame(results).sort_values(["Category","Pct"],ascending=[True,True])
 
-timestamp = "11:59 PM - 21/10/2025"
+timestamp = "11:59 AM - 28/10/2025"
 
-fig,ax=plt.subplots(figsize=(14,max(4,len(result_df)*0.3)))
+fig,ax=plt.subplots(figsize=(14,8.5))
 ax.axis('off')
 
 cols=4;x_start,y_start,x_gap,y_gap=0.05,0.92,0.24,0.07
@@ -85,8 +85,8 @@ for cat_num in [1,2,3]:
         
         rect=mpatches.FancyBboxPatch((x,y-0.04),0.18,0.055,boxstyle="round,pad=0.003",transform=ax.transAxes,facecolor=row['Color'],edgecolor='#888',linewidth=0.8)
         ax.add_patch(rect)
-        ax.text(x+0.015,y-0.0125,row['Marker'],transform=ax.transAxes,fontsize=12,va='center',weight='bold',color=text_color)
-        ax.text(x+0.045,y-0.0125,row['Name'],transform=ax.transAxes,fontsize=14,va='center',weight='bold',color=text_color)
+        ax.text(x+0.015,y-0.0125,row['Marker'],transform=ax.transAxes,fontsize=13,va='center',weight='bold',color=text_color)
+        ax.text(x+0.045,y-0.0125,row['Name'],transform=ax.transAxes,fontsize=15,va='center',weight='bold',color=text_color)
         curr_row+=1
 
 legend_elements=[
@@ -97,9 +97,9 @@ legend_elements=[
     mpatches.Patch(facecolor='#DC143C',edgecolor='#888',label='⚠ Medium Error Count'),
     mpatches.Patch(facecolor='#B22222',edgecolor='#888',label='⚠ High Error Count'),
 ]
-ax.legend(handles=legend_elements,loc='lower center',ncol=2,fontsize=10,frameon=True,bbox_to_anchor=(0.5,0.4),columnspacing=1,markerscale=1.5)
-ax.text(0.5,0.97,'Website Dashboard Error Status',transform=ax.transAxes,fontsize=15,weight='bold',ha='center')
+ax.legend(handles=legend_elements,loc='lower center',ncol=2,fontsize=10,frameon=True,bbox_to_anchor=(0.5,0.37),columnspacing=1,markerscale=1.5)
+ax.text(0.5,0.97,'Website Dashboard Error Status',transform=ax.transAxes,fontsize=17,weight='bold',ha='center')
 ax.text(0.01,0.3,f'Table generated {timestamp}',transform=ax.transAxes,fontsize=10,style='italic',color='black')
-plt.tight_layout()
+plt.subplots_adjust(bottom=0.05)
 plt.show()
 # ...existing code...
